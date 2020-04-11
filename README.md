@@ -1,4 +1,4 @@
-# Ansible K8s Dispatcher
+# Ansible K8s Dashboard
 
 Anisble Kubernetes Dashboard helps in deploying Kubernetes-dahsboard along with the roles and certs for Access Ready. The Playbook does also print the token to be used for UI access !
 
