@@ -1,0 +1,55 @@
+---
+- hosts: KubeMasters
+  become: yes
+  become_user: root
+  become_method: sudo
+  vars_files:
+  - ../env_variables
+  tasks:
+  - name: Install Openssl
+    shell: |
+     yum install openssl -y
+
+  - name: Setup kubernetes-dashboard namespace
+    shell: |
+     kubectl create namespace kubernetes-dashboard || exit 0
+
+  - name: Setup Certificates for Dashboard Access
+    shell: |
+     mkdir -p /root/k8s-dashboard-certs
+     cd /root/k8s-dashboard-certs
+     openssl genrsa -out /root/k8s-dashboard-certs/dashboard.key 2048
+     openssl rsa -in /root/k8s-dashboard-certs/dashboard.key -out /root/k8s-dashboard-certs/dashboard.key
+     openssl req -sha256 -new -key /root/k8s-dashboard-certs/dashboard.key -out /root/k8s-dashboard-certs/dashboard.csr -subj '/CN=localhost'
+     openssl x509 -req -sha256 -days 365 -in /root/k8s-dashboard-certs/dashboard.csr -signkey /root/k8s-dashboard-certs/dashboard.key -out /root/k8s-dashboard-certs/dashboard.crt
+     kubectl create secret generic kubernetes-dashboard-certs --from-file=/root/k8s-dashboard-certs/dashboard.key --from-file=/root/k8s-dashboard-certs/dashboard.crt -n kubernetes-dashboard
+
+  - name: Deploy Kubernetes Dashboard Control Panel
+    shell: |
+     kubectl create -f /root/k8s-dashboard-certs/k8s-yamls/kubernetes-dashboard.yaml
+
+  - name: Display running Pods
+    shell: |
+     kubectl get service -n kubernetes-dashboard  -o wide
+    register: running_pods
+
+  - name: Create Service Account for Access
+    shell: |
+     kubectl create -f /root/k8s-dashboard-certs/k8s-yamls/dashboard-admin.yaml
+
+  - name: Role Binding for Service Account
+    shell: |
+     kubectl create -f /root/k8s-dashboard-certs/k8s-yamls/dashboard-admin-bind-cluster-role.yaml
+
+  - name: Display Token for Connection to UI
+    shell: |
+     kubectl describe secrets -n kubernetes-dashboard $(kubectl -n kubernetes-dashboard get secret | awk '/dashboard-admin/{print $1}')
+    register: dashboard_token
+
+  - name: List Current running Pods
+    debug:
+      msg: "Kubernetes Dashboard Token: {{ running_pods.stdout }}"
+
+  - name: Print Dashboard Token
+    debug: 
+      msg: "Kubernetes Dashboard Token: {{ dashboard_token.stdout }}"

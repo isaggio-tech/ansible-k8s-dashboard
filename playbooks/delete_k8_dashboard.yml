@@ -1,0 +1,32 @@
+---
+- hosts: KubeMasters
+  become: yes
+  become_user: root
+  become_method: sudo
+  vars_files:
+  - ../env_variables
+  tasks:
+  - name: Copy dependency Yamls
+    copy:
+     src:  ../k8s-yamls
+     dest: /root/k8s-dashboard-certs
+
+  - name: Delete K8s Dashboard
+    shell: |
+     kubectl delete -f /root/k8s-dashboard-certs/k8s-yamls/kubernetes-dashboard.yaml || exit 0
+
+  - name: Delete Old KubernetesDashboardCerts from KubernetesDashboard namespace
+    shell: |
+     kubectl delete secrets -n kubernetes-dashboard kubernetes-dashboard-certs || exit 0
+
+  - name: Drop Service Account for Recreation
+    shell: |
+     kubectl delete -f /root/k8s-dashboard-certs/k8s-yamls/dashboard-admin.yaml || exit 0
+
+  - name: Drop Role Binding for Service Account To be Recreated
+    shell: |
+     kubectl delete -f /root/k8s-dashboard-certs/k8s-yamls/dashboard-admin-bind-cluster-role.yaml || exit 0
+
+  - name: Delete Old Keys for Recreation
+    shell: |
+     rm -rf /root/k8s-dashboard-certs/dashboard.key /root/k8s-dashboard-certs/dashboard.csr /root/k8s-dashboard-certs/dashboard.crt || exit 0   
